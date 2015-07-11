@@ -5,38 +5,46 @@
 
 from bs4 import BeautifulSoup
 import requests
-from sys import argv
 import re
 
-default_movie = 'http://www.imdb.com/title/tt0441773/fullcredits'
-#Default url if none is provided
 
-if len(argv) == 1:
-    url = default_movie 
-elif argv[1].startswith("http://www.imdb.com/"):
-    movie_id = re.sub('\D', '', argv[1])
-    url = 'http://www.imdb.com/title/tt' + movie_id[:7] + 'fullcredits'
-else:
-    argv.insert(1, default_movie) 
-    url = default_movie
+def search_movie_for_names(url, names):
+    """
+    Search a movie on IMDB to see how many people in the credits match a given name.
 
+    :param credits_url: The URL for the movie you want to search
+    :param names: A list of the names you want to search for in the movie's credits
+    """
 
-if len(argv) < 3:
-    names_to_search = ('Matt', 'Matthew', 'Matti', 'Matty', 'Mat', 'Mathew')
-    #Default names to search if none is provided
-else:
-    names_to_search = tuple([str(i.lower().capitalize()) for i in argv[2:]])
-    #Add names as command line arguments to override default names to search
+    # Get the unique numeric code for the IMDB movie
+    movie_id = re.sub('\D', '', url)
+    # Make sure we point to the credits page
+    credits_url = 'http://www.imdb.com/title/tt' + movie_id[:7] + '/fullcredits'
+    # Make sure the names are correctly capitalized
+    for i in range(len(names)):
+        names[i] = names[i].lower().capitalize()
 
-r = requests.get(url)
-soup = BeautifulSoup(r.text)
-links = soup.find_all('a')
+    r = requests.get(credits_url)
+    soup = BeautifulSoup(r.text, "html.parser")
+    links = soup.find_all('a')
 
-movie_title = soup.find('a', class_='subnav_heading').string
+    movie_title = soup.find('a', class_='subnav_heading').string
 
-all_names = [i.string.strip() for i in links if i.string != None]
-filtered_names = [i for i in all_names if i.startswith(names_to_search)]
+    # TODO: filter this specifically to the div with id "fullcredits_content"
+    all_names = [i.string.strip() for i in links if i.string != None]
 
-if __name__ == '__main__':
-    print(str(movie_title) + " has " + str(len(filtered_names)) + "!!!")
-    print(filtered_names)
+    filtered_names = []
+    for name in all_names:
+        for name_to_match in names:
+            if name.startswith(name_to_match):
+                if name not in filtered_names:
+                    filtered_names.append(name)
+
+    return movie_title, filtered_names
+
+# Run the code
+movie_url = 'http://www.imdb.com/title/tt0441773/fullcredits'
+names_to_search = ['Matt', 'Matthew', 'Matti', 'Matty', 'Mat', 'Mathew']
+movie_title, filtered_names = search_movie_for_names(movie_url, names_to_search)
+print(str(movie_title) + " has " + str(len(filtered_names)) + "!!!")
+print(filtered_names)
